@@ -1,0 +1,32 @@
+{
+  "name": "@archtenet-labs/pocket-cluster",
+  "version": "0.1.0-alpha.1",
+  "description": "Automated, AI-orchestrated deployments for secure, low-cost cloud infrastructure.",
+  "main": "./dist/index.js",
+  "bin": {
+    "pocket-cluster": "./dist/index.js"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node ./dist/index.js",
+    "start:dev": "build && mcp-inspector node ./dist/index.js",
+    "lint": "eslint \"src/**/*.ts\""
+  },
+  "author": "Ivan Baha | Archtenet Labs",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@modelcontextprotocol/inspector": "^0.21.1",
+    "@types/node": "^25.3.3",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
+    "eslint": "^10.0.2",
+    "prettier": "^3.8.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.1"
+  }
+}
