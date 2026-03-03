@@ -5,6 +5,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { registerTools } from './tools/index.js';
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const packageJsonPath = resolve(currentDir, '../package.json');
@@ -46,16 +47,7 @@ const server = new McpServer({
   version: packageMetadata.version,
 });
 
-server.tool('ping', 'A simple ping tool to verify functionality', {}, async () => {
-  return {
-    content: [
-      {
-        type: 'text',
-        text: 'pong',
-      },
-    ],
-  };
-});
+registerTools(server);
 
 async function run() {
   const transport = new StdioServerTransport();
