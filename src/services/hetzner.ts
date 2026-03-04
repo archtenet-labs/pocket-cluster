@@ -1,8 +1,10 @@
 import {
   HetznerDatacenter,
   HetznerLocation,
+  HetznerNetwork,
   HetznerPrimaryIpPrice,
   HetznerServerType,
+  HetznerSshKey,
   HetznerVolumePricing,
   ServerPriceCategory,
 } from '../types/index.js';
@@ -216,6 +218,249 @@ export class HetznerClient {
 
     return {
       pricePerGbMonthlyGrossEur: Number(payload.pricing.volume.price_per_gb_month.gross),
+    };
+  }
+
+  /**
+   * Fetch all SSH keys registered in the Hetzner Cloud project.
+   */
+  async fetchSshKeys(): Promise<HetznerSshKey[]> {
+    const payload = await this.request<{
+      ssh_keys: Array<{
+        id: number;
+        name: string;
+        fingerprint: string;
+        public_key: string;
+      }>;
+    }>('/ssh_keys');
+
+    return payload.ssh_keys.map((k) => ({
+      id: k.id,
+      name: k.name,
+      fingerprint: k.fingerprint,
+      publicKey: k.public_key,
+    }));
+  }
+
+  /**
+   * Upload a new SSH public key to the Hetzner Cloud project.
+   */
+  async uploadSshKey(name: string, publicKey: string): Promise<HetznerSshKey> {
+    const payload = await this.request<{
+      ssh_key: {
+        id: number;
+        name: string;
+        fingerprint: string;
+        public_key: string;
+      };
+    }>('/ssh_keys', {
+      method: 'POST',
+      body: JSON.stringify({ name, public_key: publicKey }),
+    });
+
+    return {
+      id: payload.ssh_key.id,
+      name: payload.ssh_key.name,
+      fingerprint: payload.ssh_key.fingerprint,
+      publicKey: payload.ssh_key.public_key,
+    };
+  }
+
+  /**
+   * Fetch all private networks in the Hetzner Cloud project.
+   */
+  async fetchNetworks(): Promise<HetznerNetwork[]> {
+    const payload = await this.request<{
+      networks: Array<{
+        id: number;
+        name: string;
+        ip_range: string;
+        subnets: Array<{
+          type: string;
+          ip_range: string;
+          network_zone: string;
+          gateway: string;
+        }>;
+      }>;
+    }>('/networks');
+
+    return payload.networks.map((n) => ({
+      id: n.id,
+      name: n.name,
+      ipRange: n.ip_range,
+      subnets: n.subnets.map((s) => ({
+        type: s.type as 'cloud' | 'server' | 'vswitch',
+        ipRange: s.ip_range,
+        networkZone: s.network_zone,
+        gateway: s.gateway,
+      })),
+    }));
+  }
+
+  /**
+   * Create a new volume (block storage).
+   */
+  async createVolume(params: {
+    name: string;
+    size: number;
+    location: string;
+    format?: string;
+    automount?: boolean;
+    labels?: Record<string, string>;
+  }): Promise<{
+    id: number;
+    name: string;
+    size: number;
+    format: string;
+    linuxDevice: string;
+    status: string;
+  }> {
+    const payload = await this.request<{
+      volume: {
+        id: number;
+        name: string;
+        size: number;
+        format: string;
+        linux_device: string;
+        status: string;
+      };
+    }>('/volumes', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: params.name,
+        size: params.size,
+        location: params.location,
+        format: params.format ?? 'xfs',
+        automount: params.automount ?? false,
+        labels: params.labels ?? {},
+      }),
+    });
+
+    return {
+      id: payload.volume.id,
+      name: payload.volume.name,
+      size: payload.volume.size,
+      format: payload.volume.format,
+      linuxDevice: payload.volume.linux_device,
+      status: payload.volume.status,
+    };
+  }
+
+  /**
+   * Create a new server with all associated resources.
+   */
+  async createServer(params: {
+    name: string;
+    serverType: string;
+    image: number;
+    location: string;
+    sshKeys: number[];
+    networks?: number[];
+    volumes?: number[];
+    automount?: boolean;
+    labels?: Record<string, string>;
+  }): Promise<{
+    id: number;
+    name: string;
+    ipv4: string;
+    ipv6: string;
+    serverType: string;
+    status: string;
+  }> {
+    const body: Record<string, unknown> = {
+      name: params.name,
+      server_type: params.serverType,
+      image: params.image,
+      location: params.location,
+      ssh_keys: params.sshKeys,
+      public_net: {
+        enable_ipv4: true,
+        enable_ipv6: true,
+      },
+      start_after_create: true,
+      labels: params.labels ?? {},
+    };
+
+    if (params.networks && params.networks.length > 0) {
+      body.networks = params.networks;
+    }
+    if (params.volumes && params.volumes.length > 0) {
+      body.volumes = params.volumes;
+      body.automount = params.automount ?? true;
+    }
+
+    const payload = await this.request<{
+      server: {
+        id: number;
+        name: string;
+        public_net: {
+          ipv4: { ip: string };
+          ipv6: { ip: string };
+        };
+        server_type: { name: string };
+        status: string;
+      };
+    }>('/servers', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+
+    return {
+      id: payload.server.id,
+      name: payload.server.name,
+      ipv4: payload.server.public_net.ipv4.ip,
+      ipv6: payload.server.public_net.ipv6.ip,
+      serverType: payload.server.server_type.name,
+      status: payload.server.status,
+    };
+  }
+
+  /**
+   * Create a new private network with a subnet.
+   */
+  async createNetwork(
+    name: string,
+    ipRange: string,
+    subnetIpRange: string,
+    networkZone: string,
+  ): Promise<HetznerNetwork> {
+    const payload = await this.request<{
+      network: {
+        id: number;
+        name: string;
+        ip_range: string;
+        subnets: Array<{
+          type: string;
+          ip_range: string;
+          network_zone: string;
+          gateway: string;
+        }>;
+      };
+    }>('/networks', {
+      method: 'POST',
+      body: JSON.stringify({
+        name,
+        ip_range: ipRange,
+        subnets: [
+          {
+            type: 'cloud',
+            ip_range: subnetIpRange,
+            network_zone: networkZone,
+          },
+        ],
+      }),
+    });
+
+    return {
+      id: payload.network.id,
+      name: payload.network.name,
+      ipRange: payload.network.ip_range,
+      subnets: payload.network.subnets.map((s) => ({
+        type: s.type as 'cloud' | 'server' | 'vswitch',
+        ipRange: s.ip_range,
+        networkZone: s.network_zone,
+        gateway: s.gateway,
+      })),
     };
   }
 }

@@ -206,13 +206,37 @@ export function getNextActionForPhase(phase: WorkflowPhase): { nextAction: strin
       };
     case 'recommendation_approved':
       return {
+        nextAction: 'configure_ssh',
+        description:
+          'SSH keys from Hetzner are listed above. Present them to the user, ask which to use and whether to generate a new one, then call manage_cluster with action "configure_ssh".',
+      };
+    case 'ssh_configured':
+      return {
+        nextAction: 'configure_network',
+        description:
+          'Network configuration step. Present the available private networks and image info shown above. Help the user decide whether to create a new private network or use an existing one (or skip). Then call manage_cluster with action "configure_network".',
+      };
+    case 'network_configured':
+      return {
         nextAction: 'provision',
-        description: 'Ready to provision infrastructure. (This step will be implemented in the next phase.)',
+        description:
+          'All configuration is complete. Present the provisioning plan review to the user. If they approve, call manage_cluster with action "provision" to create all resources. If they want to adjust, they can go back to any previous step.',
       };
     case 'ready_to_provision':
       return {
         nextAction: 'provision',
-        description: 'Infrastructure provisioning step. (Coming soon.)',
+        description:
+          'Infrastructure is ready to be provisioned. Call manage_cluster with action "provision" to create all resources.',
+      };
+    case 'provisioning':
+      return {
+        nextAction: 'provision',
+        description: 'Provisioning is in progress. If it failed, call "provision" again to retry.',
+      };
+    case 'provisioned':
+      return {
+        nextAction: 'done',
+        description: 'Infrastructure has been provisioned successfully. The server is ready for use.',
       };
   }
 }

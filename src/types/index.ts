@@ -6,7 +6,11 @@ export type WorkflowPhase =
   | 'cloud_checked'
   | 'requirements_set'
   | 'recommendation_approved'
-  | 'ready_to_provision';
+  | 'ssh_configured'
+  | 'network_configured'
+  | 'ready_to_provision'
+  | 'provisioning'
+  | 'provisioned';
 
 // ── Cloud Provider ──────────────────────────────────────────────────────────
 
@@ -77,6 +81,67 @@ export type HetznerVolumePricing = {
   pricePerGbMonthlyGrossEur: number;
 };
 
+/** Private network registered in Hetzner Cloud */
+export type HetznerNetwork = {
+  id: number;
+  name: string;
+  ipRange: string;
+  subnets: HetznerSubnet[];
+};
+
+export type HetznerSubnet = {
+  type: 'cloud' | 'server' | 'vswitch';
+  ipRange: string;
+  networkZone: string;
+  gateway: string;
+};
+
+/** SSH key registered in Hetzner Cloud */
+export type HetznerSshKey = {
+  id: number;
+  name: string;
+  fingerprint: string;
+  publicKey: string;
+};
+
+// ── SSH Key Config ──────────────────────────────────────────────────────────
+
+/** SSH key selection for provisioning */
+export type SshKeyConfig = {
+  /** IDs of existing Hetzner SSH keys selected by the user */
+  existingKeyIds: number[];
+  /** Path to a locally generated private key (if created), relative to project root */
+  generatedPrivateKeyPath?: string;
+  /** ID of the newly uploaded Hetzner SSH key (if generated + uploaded) */
+  generatedKeyHetznerIds?: number[];
+};
+
+// ── Network Config ──────────────────────────────────────────────────────────
+
+/** Network configuration for provisioning */
+export type NetworkConfig = {
+  /** Whether to attach a private network */
+  usePrivateNetwork: boolean;
+  /** ID of an existing private network to use (if selected) */
+  existingNetworkId?: number;
+  /** Whether to create a new private network */
+  createNewNetwork: boolean;
+  /** Name for the new private network (if creating) */
+  newNetworkName?: string;
+  /** IP range for the new private network (e.g. "10.0.0.0/16") */
+  newNetworkIpRange?: string;
+  /** Subnet IP range (e.g. "10.0.1.0/24") */
+  newSubnetIpRange?: string;
+  /** Network zone for the subnet (e.g. "eu-central") */
+  newSubnetNetworkZone?: string;
+  /** ID of the newly created network (set after creation) */
+  createdNetworkId?: number;
+  /** IPv4 is always attached */
+  attachIpv4: true;
+  /** IPv6 is always attached */
+  attachIpv6: true;
+};
+
 // ── Cluster Requirements ────────────────────────────────────────────────────
 
 export type ClusterRequirements = {
@@ -114,6 +179,26 @@ export type AlternativeGroup = {
   options: ServerRecommendation[];
 };
 
+// ── Provisioning Result Types ────────────────────────────────────────────────
+
+/** Result of volume provisioning */
+export type ProvisionedVolume = {
+  id: number;
+  name: string;
+  sizeGb: number;
+  format: string;
+  linuxDevice: string;
+};
+
+/** Result of server provisioning */
+export type ProvisionedServer = {
+  id: number;
+  name: string;
+  serverType: string;
+  ipv4: string;
+  ipv6: string;
+};
+
 // ── State ───────────────────────────────────────────────────────────────────
 
 export type PocketClusterState = {
@@ -125,6 +210,16 @@ export type PocketClusterState = {
   credentialsVerified: boolean;
   requirements?: ClusterRequirements;
   recommendation?: ServerRecommendation;
+  sshKeys?: SshKeyConfig;
+  networkConfig?: NetworkConfig;
+  /** The docker-ce image ID to use for the VM */
+  imageId?: number;
+  /** Computed server name ({projectName}-vm-1) */
+  serverName?: string;
+  /** Provisioned volume info (set after volume creation) */
+  provisionedVolume?: ProvisionedVolume;
+  /** Provisioned server info (set after server creation) */
+  provisionedServer?: ProvisionedServer;
   lastError?: string;
 };
 
